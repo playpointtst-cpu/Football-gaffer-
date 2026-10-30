@@ -1,0 +1,6 @@
+{
+  "name": "Apex Football Executive: CEO & Sporting Director Simulation",
+  "description": "Comprehensive football club executive simulation game. Take charge as Club CEO and Sporting Director controlling finances, stadium infrastructure, ground development, sponsorships, head coach appointments, and squad building without coaching matches.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
