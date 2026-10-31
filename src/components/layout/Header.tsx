@@ -135,6 +135,17 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenM
             World Leagues
           </button>
           <button
+            onClick={() => setActiveTab('media')}
+            className={`whitespace-nowrap shrink-0 transition-colors py-1 relative ${
+              activeTab === 'media' ? 'text-white border-b-2 border-emerald-500 font-semibold' : 'hover:text-white'
+            }`}
+          >
+            Press & Social
+            {state.activePressConference && !state.activePressConference.isCompleted && (
+              <span className="w-2 h-2 rounded-full bg-amber-400 absolute -top-0.5 -right-1 animate-ping" />
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab('inbox')}
             className={`whitespace-nowrap shrink-0 transition-colors py-1 relative ${
               activeTab === 'inbox' ? 'text-white border-b-2 border-emerald-500 font-semibold' : 'hover:text-white'
@@ -173,6 +184,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenM
         <button onClick={() => setActiveTab('sponsors')} className={`whitespace-nowrap py-1 ${activeTab === 'sponsors' ? 'text-emerald-400 font-bold' : ''}`}>Commercial</button>
         <button onClick={() => setActiveTab('league')} className={`whitespace-nowrap py-1 ${activeTab === 'league' ? 'text-emerald-400 font-bold' : ''}`}>League</button>
         <button onClick={() => setActiveTab('worldLeagues')} className={`whitespace-nowrap py-1 ${activeTab === 'worldLeagues' ? 'text-emerald-400 font-bold' : ''}`}>World Leagues</button>
+        <button onClick={() => setActiveTab('media')} className={`whitespace-nowrap py-1 relative ${activeTab === 'media' ? 'text-emerald-400 font-bold' : ''}`}>
+          Press & Social
+          {state.activePressConference && !state.activePressConference.isCompleted && (
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block ml-1 animate-pulse" />
+          )}
+        </button>
         <button onClick={() => setActiveTab('inbox')} className={`whitespace-nowrap py-1 ${activeTab === 'inbox' ? 'text-emerald-400 font-bold' : ''}`}>Inbox {unreadCount > 0 ? `(${unreadCount})` : ''}</button>
         <button
           onClick={onOpenManagerProfile}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Apex Football Executive</string>
+    <string name="title_activity_main">Apex Football Executive</string>
+    <string name="package_name">com.apex.footballexecutive</string>
+    <string name="custom_url_scheme">com.apex.footballexecutive</string>
+</resources>

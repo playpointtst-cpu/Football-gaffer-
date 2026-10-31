@@ -1,4 +1,5 @@
 import { ClubProfile, GameState, LeagueClub, MatchFixture, Player, ExecutiveMessage } from '../types/game';
+import { generatePostMatchPressConference, generateWeeklySocialFeed } from './pressAndSocialEngine';
 
 // Helper to generate full season schedule (38 gameweeks for 20 teams)
 export function generateSeasonFixtures(leagueClubs: LeagueClub[]): MatchFixture[] {
@@ -252,6 +253,7 @@ export function advanceGameWeek(state: GameState): GameState {
   // 1. Simulate matches for current gameweek
   const thisWeekFixtures = fixtures.filter(f => f.gameweek === currentWeek && !f.isPlayed);
   let lastMatchReport = state.lastMatchReport;
+  let playerFixturePlayed: MatchFixture | undefined = undefined;
 
   for (const f of thisWeekFixtures) {
     const simResult = simulateMatch(f, club, leagueTable);
@@ -261,6 +263,7 @@ export function advanceGameWeek(state: GameState): GameState {
     }
 
     if (simResult.playerUpdates) {
+      playerFixturePlayed = simResult.fixture;
       lastMatchReport = {
         fixture: simResult.fixture,
         coachQuote: simResult.playerUpdates.coachQuote,
@@ -598,6 +601,16 @@ export function advanceGameWeek(state: GameState): GameState {
   const nextWeek = currentWeek + 1;
   const isTransferWindowOpen = nextWeek <= 6 || (nextWeek >= 20 && nextWeek <= 24);
 
+  // 7. Contextual Post-Match Press Conference & Social Media Feed
+  let activePressConference = state.activePressConference;
+  let socialFeed = state.socialFeed || [];
+
+  if (playerFixturePlayed) {
+    activePressConference = generatePostMatchPressConference(playerFixturePlayed, club, currentWeek, state.currentSeason);
+    const newPosts = generateWeeklySocialFeed(club, playerFixturePlayed, currentWeek);
+    socialFeed = [...newPosts, ...socialFeed].slice(0, 50);
+  }
+
   return {
     ...state,
     currentWeek: nextWeek > 38 ? 1 : nextWeek,
@@ -608,6 +621,9 @@ export function advanceGameWeek(state: GameState): GameState {
     fixtures,
     inbox,
     lastMatchReport,
+    activePressConference,
+    socialFeed,
+    pressHistory: state.pressHistory || [],
   };
 }
 

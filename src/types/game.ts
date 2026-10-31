@@ -447,6 +447,92 @@ export interface GameState {
     boardReaction: string;
   };
   managerProfile?: ManagerProfile;
+  activePressConference?: PressConference | null;
+  socialFeed: SocialPost[];
+  pressHistory: CompletedPressSession[];
+}
+
+export interface PressResponseOption {
+  id: string;
+  tone: 'diplomatic' | 'passionate' | 'defensive' | 'candid';
+  label: string;
+  quote: string;
+  effects: {
+    squadMoraleDelta: number; // e.g. +5 or -4
+    fanTrustDelta: number; // e.g. +4 or -3
+    boardConfidenceDelta: number; // e.g. +3 or -2
+    reputationDelta?: number;
+    coachJobSecurityDelta?: number;
+    headlineOutcome: string;
+  };
+}
+
+export interface PressQuestion {
+  id: string;
+  journalistName: string;
+  journalistAvatar?: string;
+  outlet: string;
+  outletType: 'Broadcaster' | 'National Newspaper' | 'Tactical Journal' | 'Fan Media' | 'Tabloid';
+  question: string;
+  topic: 'Match Result' | 'Tactics' | 'Player Form' | 'Injuries' | 'Transfer Market' | 'Youth Integration' | 'Board Expectations';
+  options: PressResponseOption[];
+  answeredOptionId?: string;
+}
+
+export interface PressConference {
+  id: string;
+  week: number;
+  season: number;
+  headline: string;
+  triggerEvent: 'Post-Match' | 'Big Win' | 'Derby Victory' | 'Shock Defeat' | 'Crisis Meeting' | 'Record Signing' | 'Injury Crisis';
+  matchContext?: {
+    opponent: string;
+    score: string;
+    result: 'WIN' | 'DRAW' | 'LOSS';
+    venue: 'Home' | 'Away';
+  };
+  questions: PressQuestion[];
+  isCompleted: boolean;
+  completedAt?: string;
+  summaryOutcome?: string;
+}
+
+export interface SocialPost {
+  id: string;
+  week: number;
+  authorName: string;
+  authorHandle: string;
+  authorAvatar: string;
+  authorRole: 'Player' | 'Fan' | 'Journalist' | 'Pundit' | 'Club Official';
+  verified: boolean;
+  timeAgo: string;
+  content: string;
+  sentiment: 'ecstatic' | 'positive' | 'neutral' | 'critical' | 'furious';
+  likes: number;
+  reposts: number;
+  commentsCount: number;
+  likedByManager?: boolean;
+  managerReply?: string;
+  tags: string[];
+  matchContext?: {
+    opponent: string;
+    score: string;
+    result: 'WIN' | 'DRAW' | 'LOSS';
+  };
+  mediaUrl?: string;
+}
+
+export interface CompletedPressSession {
+  conferenceId: string;
+  week: number;
+  headline: string;
+  triggerEvent: string;
+  date: string;
+  totalMoraleDelta: number;
+  totalFanTrustDelta: number;
+  totalBoardConfidenceDelta: number;
+  keyQuote: string;
+  outletHeadlines: string[];
 }
 
 export type Continent = 'Europe' | 'Asia' | 'South America' | 'North America' | 'Africa' | 'Oceania';

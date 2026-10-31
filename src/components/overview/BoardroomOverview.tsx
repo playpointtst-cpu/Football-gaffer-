@@ -11,7 +11,9 @@ import {
   ArrowRight, 
   Calendar,
   Zap,
-  Briefcase
+  Briefcase,
+  MessageSquare,
+  Mic,
 } from 'lucide-react';
 import { IndustryNewsWidget } from './IndustryNewsWidget';
 
@@ -348,6 +350,98 @@ export const BoardroomOverview: React.FC<BoardroomOverviewProps> = ({ onNavigate
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Media Room & Social Buzz Widget */}
+      <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 space-y-4 shadow-lg">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
+              <MessageSquare className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                Press Room & FanZone Wire
+                {state.activePressConference && !state.activePressConference.isCompleted && (
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-mono font-bold animate-pulse">
+                    Media Waiting
+                  </span>
+                )}
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Live player quotes, journalist reactions, and supporter sentiment following matchday action.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onNavigate('media')}
+            className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors cursor-pointer"
+          >
+            <span>Open Social Feed</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Active Press Conference Alert Banner if any */}
+        {state.activePressConference && !state.activePressConference.isCompleted && (
+          <div className="bg-gradient-to-r from-amber-950/40 via-amber-900/30 to-slate-900 border border-amber-500/40 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Mic className="w-5 h-5 text-amber-400 shrink-0 animate-pulse" />
+              <div>
+                <div className="text-xs font-bold text-amber-300">
+                  {state.activePressConference.headline}
+                </div>
+                <div className="text-[11px] text-slate-300">
+                  {state.activePressConference.questions.length} media questions awaiting your executive response.
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => onNavigate('media')}
+              className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shrink-0 transition-colors shadow-sm cursor-pointer"
+            >
+              Enter Media Suite
+            </button>
+          </div>
+        )}
+
+        {/* 2 Latest Social Posts Snippets */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {(state.socialFeed || []).slice(0, 2).map(post => (
+            <div
+              key={post.id}
+              onClick={() => onNavigate('media')}
+              className="bg-slate-900/80 hover:bg-slate-850 border border-slate-800 rounded-xl p-3.5 space-y-2 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <img
+                    src={post.authorAvatar}
+                    alt={post.authorName}
+                    className="w-7 h-7 rounded-full object-cover border border-slate-700"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-white block leading-tight">
+                      {post.authorName}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      {post.authorHandle}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] text-slate-500 font-mono">{post.timeAgo}</span>
+              </div>
+              <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                "{post.content}"
+              </p>
+              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
+                <span className="text-sky-400 font-medium">{post.tags[0] || '#Football'}</span>
+                <span>❤️ {post.likes.toLocaleString()}</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

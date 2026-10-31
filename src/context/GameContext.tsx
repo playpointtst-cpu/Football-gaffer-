@@ -9,10 +9,14 @@ import {
   GroundSustainability,
   CommercialAmenities,
   ManagerProfile,
+  SocialPost,
+  CompletedPressSession,
+  MatchFixture,
 } from '../types/game';
 import { INITIAL_CLUBS, INITIAL_LEAGUE_TABLE } from '../data/initialClubs';
 import { advanceGameWeek, generateSeasonFixtures, generateYouthIntakeBatch } from '../services/simulationEngine';
 import { SCOUTED_TRANSFER_TARGETS } from '../data/sponsorCatalog';
+import { getPreSeasonSocialFeed, generatePostMatchPressConference } from '../services/pressAndSocialEngine';
 
 interface GameContextType {
   state: GameState;
@@ -57,6 +61,11 @@ interface GameContextType {
   scoutTargetPlayer: (playerId: string) => boolean;
   reallocateBudget: (transferDelta: number) => void;
   setManagerProfile: (profile: ManagerProfile) => void;
+  answerPressQuestion: (questionId: string, optionId: string) => void;
+  concludePressConference: () => void;
+  triggerEmergencyPressConference: (topic: string) => void;
+  likeSocialPost: (postId: string) => void;
+  replyToSocialPost: (postId: string, replyText: string) => void;
 }
 
 const STORAGE_KEY = 'apex_football_executive_save_v2';
@@ -73,6 +82,9 @@ function initializeNewGame(clubId: string = 'metro'): GameState {
     selectedClub: JSON.parse(JSON.stringify(chosenClub)),
     leagueTable,
     fixtures,
+    activePressConference: null,
+    socialFeed: getPreSeasonSocialFeed(chosenClub, 1),
+    pressHistory: [],
     inbox: [
       {
         id: 'msg_welcome',
@@ -111,6 +123,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed?.selectedClub?.players && parsed?.selectedClub?.youthAcademy && parsed?.selectedClub?.academyProspects) {
+          if (!parsed.socialFeed || parsed.socialFeed.length === 0) {
+            parsed.socialFeed = getPreSeasonSocialFeed(parsed.selectedClub, parsed.currentWeek || 1);
+          }
+          if (!parsed.pressHistory) {
+            parsed.pressHistory = [];
+          }
           return parsed;
         }
       }
@@ -172,6 +190,200 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...prev,
       managerProfile: profile,
     }));
+  };
+
+  const answerPressQuestion = (questionId: string, optionId: string) => {
+    setState(prev => {
+      if (!prev.activePressConference) return prev;
+
+      const qIndex = prev.activePressConference.questions.findIndex(q => q.id === questionId);
+      if (qIndex === -1) return prev;
+
+      const question = prev.activePressConference.questions[qIndex];
+      const selectedOption = question.options.find(o => o.id === optionId);
+      if (!selectedOption) return prev;
+
+      const effects = selectedOption.effects;
+
+      const updatedQuestions = [...prev.activePressConference.questions];
+      updatedQuestions[qIndex] = {
+        ...question,
+        answeredOptionId: optionId,
+      };
+
+      const allAnswered = updatedQuestions.every(q => !!q.answeredOptionId);
+
+      const updatedPlayers = prev.selectedClub.players.map(p => ({
+        ...p,
+        morale: Math.max(15, Math.min(100, p.morale + effects.squadMoraleDelta)),
+      }));
+
+      const updatedBoardMandate = {
+        ...prev.selectedClub.boardMandate,
+        fanTrustRating: Math.max(10, Math.min(100, prev.selectedClub.boardMandate.fanTrustRating + effects.fanTrustDelta)),
+        boardConfidence: Math.max(15, Math.min(100, prev.selectedClub.boardMandate.boardConfidence + effects.boardConfidenceDelta)),
+      };
+
+      const updatedCoach = {
+        ...prev.selectedClub.headCoach,
+        jobSecurity: Math.max(10, Math.min(100, prev.selectedClub.headCoach.jobSecurity + (effects.coachJobSecurityDelta || 0))),
+      };
+
+      const reactionPost: SocialPost = {
+        id: `sp_press_react_${Date.now()}`,
+        week: prev.currentWeek,
+        authorName: question.journalistName,
+        authorHandle: `@${question.journalistName.toLowerCase().replace(/\s+/g, '_')}`,
+        authorAvatar: question.journalistAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+        authorRole: 'Journalist',
+        verified: true,
+        timeAgo: 'Just now',
+        content: `BREAKING from the media room: ${prev.managerProfile?.fullName || 'Chief Executive'} in response to ${question.outlet}: ${effects.headlineOutcome}.`,
+        sentiment: effects.fanTrustDelta >= 0 ? 'positive' : 'critical',
+        likes: Math.floor(12000 + Math.random() * 8000),
+        reposts: Math.floor(2500 + Math.random() * 1500),
+        commentsCount: Math.floor(600 + Math.random() * 400),
+        tags: ['#PressConference', '#Quotes', `#${prev.selectedClub.name.replace(/\s+/g, '')}`],
+      };
+
+      return {
+        ...prev,
+        selectedClub: {
+          ...prev.selectedClub,
+          players: updatedPlayers,
+          boardMandate: updatedBoardMandate,
+          headCoach: updatedCoach,
+        },
+        activePressConference: {
+          ...prev.activePressConference,
+          questions: updatedQuestions,
+          isCompleted: allAnswered,
+          summaryOutcome: allAnswered ? 'Press conference concluded. Media outlets have published their post-match reactions.' : undefined,
+        },
+        socialFeed: [reactionPost, ...prev.socialFeed],
+      };
+    });
+  };
+
+  const concludePressConference = () => {
+    setState(prev => {
+      if (!prev.activePressConference) return prev;
+
+      const conf = prev.activePressConference;
+      const completedSession: CompletedPressSession = {
+        conferenceId: conf.id,
+        week: conf.week,
+        headline: conf.headline,
+        triggerEvent: conf.triggerEvent,
+        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+        totalMoraleDelta: conf.questions.reduce((sum, q) => {
+          const opt = q.options.find(o => o.id === q.answeredOptionId);
+          return sum + (opt?.effects.squadMoraleDelta || 0);
+        }, 0),
+        totalFanTrustDelta: conf.questions.reduce((sum, q) => {
+          const opt = q.options.find(o => o.id === q.answeredOptionId);
+          return sum + (opt?.effects.fanTrustDelta || 0);
+        }, 0),
+        totalBoardConfidenceDelta: conf.questions.reduce((sum, q) => {
+          const opt = q.options.find(o => o.id === q.answeredOptionId);
+          return sum + (opt?.effects.boardConfidenceDelta || 0);
+        }, 0),
+        keyQuote: conf.questions[0]?.options.find(o => o.id === conf.questions[0]?.answeredOptionId)?.quote || 'No comment provided.',
+        outletHeadlines: conf.questions.map(q => {
+          const opt = q.options.find(o => o.id === q.answeredOptionId);
+          return `${q.outlet}: ${opt?.effects.headlineOutcome || 'No comment provided'}`;
+        }),
+      };
+
+      return {
+        ...prev,
+        activePressConference: null,
+        pressHistory: [completedSession, ...(prev.pressHistory || [])],
+      };
+    });
+  };
+
+  const triggerEmergencyPressConference = (topic: string) => {
+    setState(prev => {
+      const dummyFixture: MatchFixture = {
+        id: `fx_briefing_${prev.currentWeek}`,
+        gameweek: prev.currentWeek,
+        homeTeam: prev.selectedClub.name,
+        awayTeam: 'League Rivals',
+        homeScore: 2,
+        awayScore: 0,
+        isPlayed: true,
+      };
+      const emergencyConf = generatePostMatchPressConference(dummyFixture, prev.selectedClub, prev.currentWeek, prev.currentSeason);
+      emergencyConf.headline = `Executive Briefing: ${topic}`;
+      emergencyConf.triggerEvent = 'Crisis Meeting';
+
+      return {
+        ...prev,
+        activePressConference: emergencyConf,
+      };
+    });
+  };
+
+  const likeSocialPost = (postId: string) => {
+    setState(prev => {
+      const updatedFeed = prev.socialFeed.map(post => {
+        if (post.id === postId) {
+          const wasLiked = !!post.likedByManager;
+          return {
+            ...post,
+            likedByManager: !wasLiked,
+            likes: wasLiked ? Math.max(0, post.likes - 1) : post.likes + 1,
+          };
+        }
+        return post;
+      });
+
+      const targetPost = prev.socialFeed.find(p => p.id === postId);
+      let fanTrustBoost = 0;
+      if (targetPost && !targetPost.likedByManager) {
+        fanTrustBoost = 1;
+      }
+
+      return {
+        ...prev,
+        socialFeed: updatedFeed,
+        selectedClub: {
+          ...prev.selectedClub,
+          boardMandate: {
+            ...prev.selectedClub.boardMandate,
+            fanTrustRating: Math.min(100, prev.selectedClub.boardMandate.fanTrustRating + fanTrustBoost),
+          },
+        },
+      };
+    });
+  };
+
+  const replyToSocialPost = (postId: string, replyText: string) => {
+    setState(prev => {
+      const updatedFeed = prev.socialFeed.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            managerReply: replyText,
+            commentsCount: post.commentsCount + 1,
+          };
+        }
+        return post;
+      });
+
+      return {
+        ...prev,
+        socialFeed: updatedFeed,
+        selectedClub: {
+          ...prev.selectedClub,
+          boardMandate: {
+            ...prev.selectedClub.boardMandate,
+            fanTrustRating: Math.min(100, prev.selectedClub.boardMandate.fanTrustRating + 2),
+          },
+        },
+      };
+    });
   };
 
   const selectClub = (clubId: string) => {
@@ -1254,6 +1466,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         scoutTargetPlayer,
         reallocateBudget,
         setManagerProfile,
+        answerPressQuestion,
+        concludePressConference,
+        triggerEmergencyPressConference,
+        likeSocialPost,
+        replyToSocialPost,
       }}
     >
       {children}

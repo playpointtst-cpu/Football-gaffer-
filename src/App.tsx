@@ -18,7 +18,11 @@ import { WorldLeaguesView } from './components/leagues/WorldLeaguesView';
 import { InboxView } from './components/inbox/InboxView';
 import { MatchResultModal } from './components/modals/MatchResultModal';
 import { PreGameSetupModal } from './components/onboarding/PreGameSetupModal';
+import { MediaAndSocialView } from './components/media/MediaAndSocialView';
+import { AndroidBottomNav } from './components/layout/AndroidBottomNav';
 import { useGame } from './context/GameContext';
+import { App as CapApp } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 function MainGame() {
   const { state } = useGame();
@@ -26,6 +30,40 @@ function MainGame() {
   const [showSetupModal, setShowSetupModal] = useState<boolean>(() => {
     return !state.managerProfile;
   });
+
+  // Android status bar theming
+  React.useEffect(() => {
+    try {
+      StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: '#0a0f1d' }).catch(() => {});
+    } catch {
+      // Browser environment fallback
+    }
+  }, []);
+
+  // Android hardware back button handler
+  React.useEffect(() => {
+    let listenerPromise: any;
+    try {
+      listenerPromise = CapApp.addListener('backButton', () => {
+        if (showSetupModal && state.managerProfile) {
+          setShowSetupModal(false);
+        } else if (activeTab !== 'overview') {
+          setActiveTab('overview');
+        } else {
+          CapApp.exitApp();
+        }
+      });
+    } catch {
+      // Browser environment fallback
+    }
+
+    return () => {
+      if (listenerPromise) {
+        listenerPromise.then((handle: { remove: () => void }) => handle.remove()).catch(() => {});
+      }
+    };
+  }, [activeTab, showSetupModal, state.managerProfile]);
 
   return (
     <div className="min-h-screen bg-[#0a0f1d] text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
@@ -35,7 +73,7 @@ function MainGame() {
         onOpenManagerProfile={() => setShowSetupModal(true)}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 pb-28 xl:pb-8">
         {activeTab === 'overview' && (
           <BoardroomOverview
             onNavigate={setActiveTab}
@@ -50,8 +88,16 @@ function MainGame() {
         {activeTab === 'sponsors' && <SponsorshipView />}
         {activeTab === 'league' && <LeagueFixturesView />}
         {activeTab === 'worldLeagues' && <WorldLeaguesView />}
+        {activeTab === 'media' && <MediaAndSocialView />}
         {activeTab === 'inbox' && <InboxView />}
       </main>
+
+      {/* Android Mobile Ergonomic Bottom Nav */}
+      <AndroidBottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenManagerProfile={() => setShowSetupModal(true)}
+      />
 
       <MatchResultModal />
       
