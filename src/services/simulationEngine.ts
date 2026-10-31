@@ -1,5 +1,6 @@
 import { ClubProfile, GameState, LeagueClub, MatchFixture, Player, ExecutiveMessage } from '../types/game';
 import { generatePostMatchPressConference, generateWeeklySocialFeed } from './pressAndSocialEngine';
+import { calculateExecutiveReputation } from '../data/executiveQualifications';
 
 // Helper to generate full season schedule (38 gameweeks for 20 teams)
 export function generateSeasonFixtures(leagueClubs: LeagueClub[]): MatchFixture[] {
@@ -611,12 +612,44 @@ export function advanceGameWeek(state: GameState): GameState {
     socialFeed = [...newPosts, ...socialFeed].slice(0, 50);
   }
 
+  // 8. Dynamic Executive Experience (XP) & Performance-based Reputation
+  let managerProfile = state.managerProfile ? { ...state.managerProfile } : undefined;
+  if (managerProfile) {
+    let earnedXp = 10; // +10 XP for standard week operations
+    if (playerFixturePlayed && playerFixturePlayed.homeScore !== undefined && playerFixturePlayed.awayScore !== undefined) {
+      const isHome = playerFixturePlayed.homeTeam === club.name;
+      const won = isHome 
+        ? playerFixturePlayed.homeScore > playerFixturePlayed.awayScore 
+        : playerFixturePlayed.awayScore > playerFixturePlayed.homeScore;
+      if (won) earnedXp += 5; // +5 XP for match win
+    }
+    if (netWeeklyCashflow >= 0) earnedXp += 5; // +5 XP for operating surplus
+
+    managerProfile.executiveExperience = (managerProfile.executiveExperience || 0) + earnedXp;
+
+    const clubLeagueEntry = leagueTable.find(c => c.name === club.name);
+    const winRate = clubLeagueEntry && clubLeagueEntry.played > 0 
+      ? (clubLeagueEntry.won / clubLeagueEntry.played) * 100 
+      : 50;
+    const completedQuals = managerProfile.completedExecutiveQualifications?.length || 0;
+    const isFfpCompliant = club.finances.threeYearRollingLoss <= 105000000;
+
+    managerProfile.reputationScore = calculateExecutiveReputation(
+      club.boardMandate.boardConfidence,
+      club.boardMandate.fanTrustRating,
+      winRate,
+      isFfpCompliant,
+      completedQuals
+    );
+  }
+
   return {
     ...state,
     currentWeek: nextWeek > 38 ? 1 : nextWeek,
     currentSeason: nextWeek > 38 ? state.currentSeason + 1 : state.currentSeason,
     isTransferWindowOpen,
     selectedClub: club,
+    managerProfile,
     leagueTable,
     fixtures,
     inbox,

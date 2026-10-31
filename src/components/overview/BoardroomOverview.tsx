@@ -14,15 +14,24 @@ import {
   Briefcase,
   MessageSquare,
   Mic,
+  BookOpen,
+  Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 import { IndustryNewsWidget } from './IndustryNewsWidget';
+import { EXECUTIVE_QUALIFICATIONS, getExecutiveQualificationById } from '../../data/executiveQualifications';
 
 interface BoardroomOverviewProps {
   onNavigate: (tab: string) => void;
   onOpenManagerProfile?: () => void;
+  onOpenExecutiveDevelopment?: () => void;
 }
 
-export const BoardroomOverview: React.FC<BoardroomOverviewProps> = ({ onNavigate, onOpenManagerProfile }) => {
+export const BoardroomOverview: React.FC<BoardroomOverviewProps> = ({ 
+  onNavigate, 
+  onOpenManagerProfile,
+  onOpenExecutiveDevelopment 
+}) => {
   const { state, advanceWeek, advanceMonth, isSimulating } = useGame();
   const club = state.selectedClub;
   const nextFixture = state.fixtures.find(f => f.gameweek === state.currentWeek && !f.isPlayed);
@@ -81,63 +90,125 @@ export const BoardroomOverview: React.FC<BoardroomOverviewProps> = ({ onNavigate
         </div>
       </div>
 
-      {/* Manager Profile & Confederation Accreditation Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-[#121c33] border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-3xl shadow-inner shrink-0">
-            {state.managerProfile ? state.managerProfile.nationalityFlag : '👔'}
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded">
-                Sporting Director & Manager Profile
-              </span>
-              {state.managerProfile && (
-                <span className="text-[11px] font-mono font-semibold text-amber-400 bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded">
-                  {state.managerProfile.confederation} Accredited
-                </span>
-              )}
-            </div>
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <span>{state.managerProfile ? state.managerProfile.fullName : 'Unregistered Manager'}</span>
-              {state.managerProfile && (
-                <span className="text-xs text-slate-400 font-normal">
-                  ({state.managerProfile.nationality})
-                </span>
-              )}
-            </h3>
-            <p className="text-xs text-slate-300">
-              {state.managerProfile ? (
-                <>
-                  Official License: <strong className="text-amber-300">{state.managerProfile.licenseName}</strong> • {state.managerProfile.licenseDescription}
-                </>
-              ) : (
-                'Complete your official coaching license examination to receive continental recognition.'
-              )}
-            </p>
-          </div>
-        </div>
+      {/* Executive Directorate & Development Banner */}
+      {(() => {
+        const completedQuals = state.managerProfile?.completedExecutiveQualifications || [];
+        const currentQualId = state.managerProfile?.currentExecutiveQualificationId;
+        const activeQualDef = currentQualId 
+          ? getExecutiveQualificationById(currentQualId) 
+          : completedQuals.length > 0 
+          ? getExecutiveQualificationById(completedQuals[completedQuals.length - 1].id) 
+          : null;
+        const execXp = state.managerProfile?.executiveExperience || 0;
+        const repScore = state.managerProfile?.reputationScore || 50;
 
-        <div className="flex items-center gap-3 shrink-0">
-          {state.managerProfile ? (
-            <button
-              onClick={onOpenManagerProfile}
-              className="px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-2 transition-colors shadow-sm"
-            >
-              <Award className="w-4 h-4 text-amber-400" />
-              <span>View Coaching Diploma & Credentials</span>
-            </button>
-          ) : (
-            <button
-              onClick={onOpenManagerProfile}
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-950/50 transition-colors"
-            >
-              <Award className="w-4 h-4" />
-              <span>Take Confederation Coaching Exam</span>
-            </button>
-          )}
-        </div>
-      </div>
+        return (
+          <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-[#121c33] border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-3xl shadow-inner shrink-0">
+                  {state.managerProfile ? state.managerProfile.nationalityFlag : '👔'}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded">
+                      Chief Executive & Sporting Director
+                    </span>
+                    {state.managerProfile && (
+                      <span className="text-[11px] font-mono font-semibold text-amber-400 bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded">
+                        {state.managerProfile.confederation} Accredited
+                      </span>
+                    )}
+                    {activeQualDef ? (
+                      <span className="text-[11px] font-mono font-bold text-blue-400 bg-blue-950/40 border border-blue-500/30 px-2 py-0.5 rounded flex items-center gap-1">
+                        <Award className="w-3 h-3 text-blue-400" />
+                        Level {activeQualDef.level}: {activeQualDef.title}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-mono text-slate-400 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded">
+                        No Formal Executive Qualification
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <span>{state.managerProfile ? state.managerProfile.fullName : 'Unregistered Manager'}</span>
+                    {state.managerProfile && (
+                      <span className="text-xs text-slate-400 font-normal">
+                        ({state.managerProfile.nationality})
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-slate-300">
+                    Coaching Badge: <strong className="text-amber-300">{state.managerProfile?.licenseName || 'UEFA C License'}</strong>
+                    {activeQualDef && (
+                      <> • Executive Credential: <strong className="text-blue-300">{activeQualDef.title}</strong></>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button
+                  onClick={onOpenExecutiveDevelopment}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-950/50 transition-colors cursor-pointer"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>Executive Development & Exams</span>
+                </button>
+
+                <button
+                  onClick={onOpenManagerProfile}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Award className="w-4 h-4 text-amber-400" />
+                  <span>Coaching Dossier</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Executive Experience & Reputation Metrics Sub-Bar */}
+            <div className="pt-3 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="flex items-center gap-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div>
+                  <div className="text-[10px] text-slate-400 uppercase font-bold">Executive XP</div>
+                  <div className="font-mono font-bold text-emerald-300">{execXp} XP Earned</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                <div>
+                  <div className="text-[10px] text-slate-400 uppercase font-bold">Reputation Score</div>
+                  <div className="font-mono font-bold text-amber-300">{repScore} / 100</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/60">
+                <Award className="w-4 h-4 text-blue-400 shrink-0" />
+                <div>
+                  <div className="text-[10px] text-slate-400 uppercase font-bold">Qualifications</div>
+                  <div className="font-mono font-bold text-blue-300">{completedQuals.length} of 4 Completed</div>
+                </div>
+              </div>
+
+              <div 
+                onClick={onOpenExecutiveDevelopment}
+                className="flex items-center justify-between bg-slate-950/60 hover:bg-slate-900 p-2.5 rounded-xl border border-slate-800/60 cursor-pointer transition-colors"
+              >
+                <div>
+                  <div className="text-[10px] text-slate-400 uppercase font-bold">Curriculum</div>
+                  <div className="text-[11px] font-semibold text-emerald-400">
+                    {completedQuals.length < 4 ? 'Next Exam Available' : 'Master Executive'}
+                  </div>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Primary KPI Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

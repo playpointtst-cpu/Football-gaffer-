@@ -14,7 +14,10 @@ import {
   Globe2, 
   Mail,
   Award,
-  Play
+  Play,
+  Save,
+  Home,
+  BookOpen
 } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 
@@ -22,12 +25,18 @@ interface AndroidBottomNavProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onOpenManagerProfile?: () => void;
+  onOpenExecutiveDevelopment?: () => void;
+  onOpenSaveModal?: () => void;
+  onReturnToMainMenu?: () => void;
 }
 
 export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
   activeTab,
   setActiveTab,
-  onOpenManagerProfile
+  onOpenManagerProfile,
+  onOpenExecutiveDevelopment,
+  onOpenSaveModal,
+  onReturnToMainMenu,
 }) => {
   const { state, advanceWeek, isSimulating } = useGame();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -198,6 +207,49 @@ export const AndroidBottomNav: React.FC<AndroidBottomNavProps> = ({
                     {unreadCount} new
                   </span>
                 )}
+              </button>
+
+              {/* Save & Main Menu Actions for Mobile */}
+              <button
+                onClick={() => {
+                  setShowMoreMenu(false);
+                  onOpenSaveModal?.();
+                }}
+                className="flex items-center gap-2.5 p-3 rounded-xl border border-emerald-500/30 bg-emerald-950/20 text-left text-emerald-300 hover:bg-emerald-900/30 transition-all"
+              >
+                <Save className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div>
+                  <div className="text-xs font-bold text-white">Save / Load</div>
+                  <div className="text-[10px] text-emerald-400/80">Auto-save & Slots</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowMoreMenu(false);
+                  onOpenExecutiveDevelopment?.();
+                }}
+                className="flex items-center gap-2.5 p-3 rounded-xl border border-blue-500/30 bg-blue-950/20 text-left text-blue-300 hover:bg-blue-900/30 transition-all"
+              >
+                <BookOpen className="w-4 h-4 text-blue-400 shrink-0" />
+                <div>
+                  <div className="text-xs font-bold text-white">Exec Academy</div>
+                  <div className="text-[10px] text-blue-400/80">IPFE Diplomas & XP</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowMoreMenu(false);
+                  onReturnToMainMenu?.();
+                }}
+                className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-800 bg-slate-900/80 text-left text-slate-300 hover:bg-slate-800 transition-all"
+              >
+                <Home className="w-4 h-4 text-slate-400 shrink-0" />
+                <div>
+                  <div className="text-xs font-bold text-white">Main Menu</div>
+                  <div className="text-[10px] text-slate-500">New / Load Screen</div>
+                </div>
               </button>
             </div>
           </div>

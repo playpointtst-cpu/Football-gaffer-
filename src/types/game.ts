@@ -559,4 +559,79 @@ export interface ManagerProfile {
   certificateNumber: string;
   tacticalPhilosophy: TacticalStyle;
   reputationScore: number;
+  executiveExperience?: number; // Total XP earned through club operations
+  currentExecutiveQualificationId?: ExecutiveQualificationId;
+  completedExecutiveQualifications?: CompletedExecutiveQualification[];
 }
+
+export type ExecutiveQualificationId = 
+  | 'admin_certificate'
+  | 'sporting_diploma'
+  | 'football_business'
+  | 'advanced_executive';
+
+export interface CompletedExecutiveQualification {
+  id: ExecutiveQualificationId;
+  title: string;
+  level: number; // 1 to 4
+  completedWeek: number;
+  completedSeason: number;
+  score: number;
+  certificateId: string;
+  awardedDate: string;
+}
+
+export interface ExecutiveQuestionOption {
+  letter: 'A' | 'B' | 'C' | 'D';
+  text: string;
+  isCorrect: boolean;
+  feedback: string;
+}
+
+export interface ExecutiveAssessmentQuestion {
+  id: string;
+  category: string;
+  scenario: string;
+  question: string;
+  options: ExecutiveQuestionOption[];
+}
+
+export interface ExecutiveQualificationDefinition {
+  id: ExecutiveQualificationId;
+  title: string;
+  level: number;
+  subtitle: string;
+  description: string;
+  requiredXp: number;
+  prerequisiteId?: ExecutiveQualificationId;
+  governingBody: string;
+  unlockedCapabilities: string[];
+  passingScorePercent: number;
+  questions: ExecutiveAssessmentQuestion[];
+}
+
+export interface SaveSlotMetadata {
+  id: string; // 'autosave' | 'slot_1' | 'slot_2' | 'slot_3' | etc.
+  name: string;
+  timestamp: number;
+  dateFormatted: string;
+  clubName: string;
+  clubId: string;
+  leagueName: string;
+  currentWeek: number;
+  currentSeason: number;
+  managerName?: string;
+  managerNationality?: string;
+  managerNationalityFlag?: string;
+  managerLicense?: string;
+  balance: number;
+  transferBudget: number;
+  squadCount: number;
+  isAutoSave: boolean;
+}
+
+export interface SaveSlotData {
+  metadata: SaveSlotMetadata;
+  gameState: GameState;
+}
+

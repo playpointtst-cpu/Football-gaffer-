@@ -20,36 +20,66 @@ import { MatchResultModal } from './components/modals/MatchResultModal';
 import { PreGameSetupModal } from './components/onboarding/PreGameSetupModal';
 import { MediaAndSocialView } from './components/media/MediaAndSocialView';
 import { AndroidBottomNav } from './components/layout/AndroidBottomNav';
+import { MainMenu } from './components/menu/MainMenu';
+import { SaveLoadModal } from './components/modals/SaveLoadModal';
+import { ExecutiveDevelopmentModal } from './components/modals/ExecutiveDevelopmentModal';
 import { useGame } from './context/GameContext';
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { CheckCircle2 } from 'lucide-react';
 
 function MainGame() {
-  const { state } = useGame();
+  const { 
+    state, 
+    inMainMenu, 
+    setInMainMenu, 
+    startNewGame, 
+    lastAutoSavedTime,
+    triggerAutoSave 
+  } = useGame();
+
   const [activeTab, setActiveTab] = useState<string>('overview');
-  const [showSetupModal, setShowSetupModal] = useState<boolean>(() => {
-    return !state.managerProfile;
-  });
+  const [showSetupModal, setShowSetupModal] = useState<boolean>(false);
+  const [showSaveModal, setShowSaveModal] = useState<boolean>(false);
+  const [showExecutiveModal, setShowExecutiveModal] = useState<boolean>(false);
+  const [saveModalMode, setSaveModalMode] = useState<'save' | 'load'>('save');
+  const [showAutoSaveToast, setShowAutoSaveToast] = useState<boolean>(false);
 
   // Android status bar theming
   React.useEffect(() => {
     try {
       StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
-      StatusBar.setBackgroundColor({ color: '#0a0f1d' }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: '#070b14' }).catch(() => {});
     } catch {
       // Browser environment fallback
     }
   }, []);
+
+  // Display Auto-Save Toast whenever auto-save triggers
+  React.useEffect(() => {
+    if (lastAutoSavedTime) {
+      setShowAutoSaveToast(true);
+      const timer = setTimeout(() => setShowAutoSaveToast(false), 2400);
+      return () => clearTimeout(timer);
+    }
+  }, [lastAutoSavedTime]);
 
   // Android hardware back button handler
   React.useEffect(() => {
     let listenerPromise: any;
     try {
       listenerPromise = CapApp.addListener('backButton', () => {
-        if (showSetupModal && state.managerProfile) {
+        if (showExecutiveModal) {
+          setShowExecutiveModal(false);
+        } else if (showSaveModal) {
+          setShowSaveModal(false);
+        } else if (showSetupModal && state.managerProfile) {
           setShowSetupModal(false);
-        } else if (activeTab !== 'overview') {
+        } else if (!inMainMenu && activeTab !== 'overview') {
           setActiveTab('overview');
+        } else if (!inMainMenu) {
+          // In simulation overview -> return to Main Menu
+          setInMainMenu(true);
         } else {
           CapApp.exitApp();
         }
@@ -63,7 +93,44 @@ function MainGame() {
         listenerPromise.then((handle: { remove: () => void }) => handle.remove()).catch(() => {});
       }
     };
-  }, [activeTab, showSetupModal, state.managerProfile]);
+  }, [activeTab, showSetupModal, showSaveModal, showExecutiveModal, inMainMenu, state.managerProfile, setInMainMenu]);
+
+  // Handler for Option 1: New Game from Main Menu
+  const handleStartNewGame = () => {
+    startNewGame();
+    setShowSetupModal(true);
+  };
+
+  const handleOpenSaveModal = (mode: 'save' | 'load' = 'save') => {
+    setSaveModalMode(mode);
+    setShowSaveModal(true);
+  };
+
+  const handleReturnToMainMenu = () => {
+    // Ensure state is auto-saved before switching to Main Menu
+    triggerAutoSave();
+    setInMainMenu(true);
+  };
+
+  // If in Main Menu, render the Main Menu screen with Options 1: New and 2: Load
+  if (inMainMenu) {
+    return (
+      <div className="min-h-screen bg-[#070b14] text-slate-100 font-sans">
+        <MainMenu
+          onStartNewGame={handleStartNewGame}
+          onContinueGame={() => setInMainMenu(false)}
+          canContinue={!!state.managerProfile}
+        />
+
+        {/* If New Game was selected and immediately triggers Name & Country selection */}
+        <PreGameSetupModal
+          isOpen={showSetupModal}
+          onClose={() => setShowSetupModal(false)}
+          canDismiss={!!state.managerProfile}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0f1d] text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
@@ -71,6 +138,9 @@ function MainGame() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenManagerProfile={() => setShowSetupModal(true)}
+        onOpenExecutiveDevelopment={() => setShowExecutiveModal(true)}
+        onOpenSaveModal={() => handleOpenSaveModal('save')}
+        onReturnToMainMenu={handleReturnToMainMenu}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 pb-28 xl:pb-8">
@@ -78,6 +148,7 @@ function MainGame() {
           <BoardroomOverview
             onNavigate={setActiveTab}
             onOpenManagerProfile={() => setShowSetupModal(true)}
+            onOpenExecutiveDevelopment={() => setShowExecutiveModal(true)}
           />
         )}
         {activeTab === 'finances' && <FinancialLedgerView />}
@@ -97,11 +168,37 @@ function MainGame() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenManagerProfile={() => setShowSetupModal(true)}
+        onOpenExecutiveDevelopment={() => setShowExecutiveModal(true)}
+        onOpenSaveModal={() => handleOpenSaveModal('save')}
+        onReturnToMainMenu={handleReturnToMainMenu}
+      />
+
+      {/* Auto-Save Toast Banner */}
+      {showAutoSaveToast && (
+        <div className="fixed top-16 right-4 z-50 flex items-center gap-2 bg-slate-900/95 border border-emerald-500/40 text-emerald-300 text-xs px-3.5 py-2 rounded-xl shadow-xl backdrop-blur animate-in fade-in slide-in-from-top-2 duration-200">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span className="font-semibold">Auto-saved</span>
+          <span className="text-slate-400 text-[10px] font-mono">Week {state.currentWeek}</span>
+        </div>
+      )}
+
+      {/* Executive Development & Accreditation Modal */}
+      <ExecutiveDevelopmentModal
+        isOpen={showExecutiveModal}
+        onClose={() => setShowExecutiveModal(false)}
+      />
+
+      {/* Save / Load Modal */}
+      <SaveLoadModal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        initialMode={saveModalMode}
+        onReturnToMainMenu={handleReturnToMainMenu}
       />
 
       <MatchResultModal />
       
-      {/* Continental Coaching License & Manager Setup Modal */}
+      {/* Continental Coaching License & Manager Setup Modal (Name & Country selection point) */}
       <PreGameSetupModal
         isOpen={showSetupModal || !state.managerProfile}
         onClose={() => setShowSetupModal(false)}

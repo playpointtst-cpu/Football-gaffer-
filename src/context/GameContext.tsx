@@ -12,11 +12,22 @@ import {
   SocialPost,
   CompletedPressSession,
   MatchFixture,
+  SaveSlotMetadata,
+  ExecutiveQualificationId,
+  CompletedExecutiveQualification,
 } from '../types/game';
 import { INITIAL_CLUBS, INITIAL_LEAGUE_TABLE } from '../data/initialClubs';
 import { advanceGameWeek, generateSeasonFixtures, generateYouthIntakeBatch } from '../services/simulationEngine';
 import { SCOUTED_TRANSFER_TARGETS } from '../data/sponsorCatalog';
 import { getPreSeasonSocialFeed, generatePostMatchPressConference } from '../services/pressAndSocialEngine';
+import { 
+  saveGameToSlot, 
+  loadGameFromSlot, 
+  deleteSaveSlot, 
+  getAllSaveSlots,
+  hasAnySaveGame
+} from '../services/saveGameService';
+import { getExecutiveQualificationById } from '../data/executiveQualifications';
 
 interface GameContextType {
   state: GameState;
@@ -66,6 +77,20 @@ interface GameContextType {
   triggerEmergencyPressConference: (topic: string) => void;
   likeSocialPost: (postId: string) => void;
   replyToSocialPost: (postId: string, replyText: string) => void;
+  // Save & Load management
+  inMainMenu: boolean;
+  setInMainMenu: (inMenu: boolean) => void;
+  saveGame: (slotId: string, customName?: string) => boolean;
+  loadGame: (slotId: string) => boolean;
+  deleteSave: (slotId: string) => boolean;
+  getSaveSlots: () => SaveSlotMetadata[];
+  startNewGame: (clubId?: string) => void;
+  triggerAutoSave: (overrideState?: GameState) => boolean;
+  lastAutoSavedTime: number | null;
+  // Executive Development methods
+  awardExecutiveExperience: (xp: number, reason?: string) => void;
+  earnExecutiveQualification: (qualId: ExecutiveQualificationId, score: number) => boolean;
+  hasExecutiveQualification: (qualId: ExecutiveQualificationId) => boolean;
 }
 
 const STORAGE_KEY = 'apex_football_executive_save_v2';
@@ -138,12 +163,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return initializeNewGame('metro');
   });
 
+  const [inMainMenu, setInMainMenu] = useState<boolean>(true);
+  const [lastAutoSavedTime, setLastAutoSavedTime] = useState<number | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationWeekTarget, setSimulationWeekTarget] = useState<number | null>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [scoutedPlayers, setScoutedPlayers] = useState<Player[]>(SCOUTED_TRANSFER_TARGETS);
 
-  // Save on state change
+  // Save on state change to active session cache
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -157,6 +184,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTimeout(() => {
       setState(prev => {
         const next = advanceGameWeek(prev);
+        // Automatically save to the dedicated auto-save slot
+        saveGameToSlot('autosave', next, 'Auto-Save', true);
+        setLastAutoSavedTime(Date.now());
         return next;
       });
       setIsSimulating(false);
@@ -181,15 +211,130 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsSimulating(false);
         setSimulationWeekTarget(null);
         setShowMatchModal(true);
+        // Auto-save on month completion
+        saveGameToSlot('autosave', current, 'Auto-Save', true);
+        setLastAutoSavedTime(Date.now());
       }
     }, 350);
   };
 
   const setManagerProfile = (profile: ManagerProfile) => {
-    setState(prev => ({
-      ...prev,
-      managerProfile: profile,
-    }));
+    setState(prev => {
+      const updated = {
+        ...prev,
+        managerProfile: profile,
+      };
+      // Auto-save upon credential accreditation and club assignment
+      saveGameToSlot('autosave', updated, 'Auto-Save', true);
+      setLastAutoSavedTime(Date.now());
+      return updated;
+    });
+  };
+
+  const saveGame = (slotId: string, customName?: string): boolean => {
+    const success = saveGameToSlot(slotId, state, customName, slotId === 'autosave');
+    if (success && slotId === 'autosave') {
+      setLastAutoSavedTime(Date.now());
+    }
+    return success;
+  };
+
+  const loadGame = (slotId: string): boolean => {
+    const loadedState = loadGameFromSlot(slotId);
+    if (loadedState) {
+      setState(loadedState);
+      setInMainMenu(false);
+      setShowMatchModal(false);
+      return true;
+    }
+    return false;
+  };
+
+  const deleteSave = (slotId: string): boolean => {
+    return deleteSaveSlot(slotId);
+  };
+
+  const getSaveSlots = (): SaveSlotMetadata[] => {
+    return getAllSaveSlots();
+  };
+
+  const startNewGame = (clubId: string = 'metro') => {
+    const fresh = initializeNewGame(clubId);
+    // Explicitly clear managerProfile so player immediately reaches the Name & Country selection point
+    delete fresh.managerProfile;
+    setState(fresh);
+    setInMainMenu(false);
+    setShowMatchModal(false);
+  };
+
+  const triggerAutoSave = (overrideState?: GameState): boolean => {
+    const targetState = overrideState || state;
+    const ok = saveGameToSlot('autosave', targetState, 'Auto-Save', true);
+    if (ok) {
+      setLastAutoSavedTime(Date.now());
+    }
+    return ok;
+  };
+
+  const awardExecutiveExperience = (xp: number, reason?: string) => {
+    setState(prev => {
+      if (!prev.managerProfile) return prev;
+      const updatedProfile = {
+        ...prev.managerProfile,
+        executiveExperience: (prev.managerProfile.executiveExperience || 0) + xp,
+      };
+      return {
+        ...prev,
+        managerProfile: updatedProfile,
+      };
+    });
+  };
+
+  const earnExecutiveQualification = (qualId: ExecutiveQualificationId, score: number): boolean => {
+    const qualDef = getExecutiveQualificationById(qualId);
+    if (!qualDef) return false;
+
+    setState(prev => {
+      if (!prev.managerProfile) return prev;
+      const existing = prev.managerProfile.completedExecutiveQualifications || [];
+      const now = new Date();
+      const certId = `IPFE-${qualId.toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
+      const certEntry: CompletedExecutiveQualification = {
+        id: qualId,
+        title: qualDef.title,
+        level: qualDef.level,
+        completedWeek: prev.currentWeek,
+        completedSeason: prev.currentSeason,
+        score,
+        certificateId: certId,
+        awardedDate: now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+      };
+
+      const updatedCompleted = [...existing.filter(q => q.id !== qualId), certEntry];
+      const updatedProfile: ManagerProfile = {
+        ...prev.managerProfile,
+        currentExecutiveQualificationId: qualId,
+        completedExecutiveQualifications: updatedCompleted,
+        // Bonus +50 XP upon formal executive diploma completion
+        executiveExperience: (prev.managerProfile.executiveExperience || 0) + 50,
+      };
+
+      const updated = {
+        ...prev,
+        managerProfile: updatedProfile,
+      };
+
+      // Auto-save the state with newly accredited qualification
+      saveGameToSlot('autosave', updated, 'Auto-Save', true);
+      setLastAutoSavedTime(Date.now());
+      return updated;
+    });
+
+    return true;
+  };
+
+  const hasExecutiveQualification = (qualId: ExecutiveQualificationId): boolean => {
+    return !!state.managerProfile?.completedExecutiveQualifications?.some(q => q.id === qualId);
   };
 
   const answerPressQuestion = (questionId: string, optionId: string) => {
@@ -1471,6 +1616,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         triggerEmergencyPressConference,
         likeSocialPost,
         replyToSocialPost,
+        inMainMenu,
+        setInMainMenu,
+        saveGame,
+        loadGame,
+        deleteSave,
+        getSaveSlots,
+        startNewGame,
+        triggerAutoSave,
+        lastAutoSavedTime,
+        awardExecutiveExperience,
+        earnExecutiveQualification,
+        hasExecutiveQualification,
       }}
     >
       {children}

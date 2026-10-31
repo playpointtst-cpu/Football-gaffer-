@@ -1,14 +1,24 @@
 import React from 'react';
 import { useGame } from '../../context/GameContext';
-import { Play, FastForward, Shield, TrendingUp, Building2, Briefcase, Award } from 'lucide-react';
+import { Play, FastForward, Shield, TrendingUp, Building2, Briefcase, Award, Save, Home, BookOpen, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onOpenManagerProfile?: () => void;
+  onOpenExecutiveDevelopment?: () => void;
+  onOpenSaveModal?: () => void;
+  onReturnToMainMenu?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenManagerProfile }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  onOpenManagerProfile,
+  onOpenExecutiveDevelopment,
+  onOpenSaveModal,
+  onReturnToMainMenu,
+}) => {
   const { state, advanceWeek, advanceMonth, isSimulating } = useGame();
   const club = state.selectedClub;
 
@@ -56,6 +66,25 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenM
             >
               <Award className="w-3.5 h-3.5 text-amber-400" />
               <span>Coaching Exam</span>
+            </button>
+          )}
+
+          {/* Executive Development & Credentials Button */}
+          {state.managerProfile && (
+            <button
+              onClick={onOpenExecutiveDevelopment}
+              className="hidden lg:flex items-center gap-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-xs transition-colors cursor-pointer shadow-sm"
+              title="Open Executive Development Curriculum & Formal Qualifications"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="flex flex-col text-left">
+                <span className="text-[10px] font-bold text-emerald-300 leading-tight">
+                  {state.managerProfile.currentExecutiveQualificationId ? 'IPFE Certified' : 'Executive Academy'}
+                </span>
+                <span className="text-[9px] font-mono text-emerald-400/90 leading-tight">
+                  {state.managerProfile.executiveExperience || 0} XP
+                </span>
+              </div>
             </button>
           )}
         </div>
@@ -155,8 +184,26 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenM
           </button>
         </nav>
 
-        {/* Zone 3: 1 Primary Action & Progression Status */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Zone 3: Save Slots, Progression Status, & Advance Week */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <button
+            onClick={onOpenSaveModal}
+            className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-750 hover:text-white border border-slate-700/80 rounded-lg transition-colors cursor-pointer shadow-sm"
+            title="Save Game, Auto-Save Slots & Load Point"
+          >
+            <Save className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">Save / Load</span>
+          </button>
+
+          <button
+            onClick={onReturnToMainMenu}
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-colors cursor-pointer"
+            title="Return to Main Menu"
+          >
+            <Home className="w-3.5 h-3.5" />
+            <span>Menu</span>
+          </button>
+
           <div className="hidden md:flex flex-col text-right text-xs">
             <span className="font-mono text-slate-300 font-medium">Week {state.currentWeek} of 38</span>
             <span className="text-slate-500 text-[11px] font-mono">Season {state.currentSeason}/{state.currentSeason + 1 - 2000}</span>
@@ -175,6 +222,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenM
 
       {/* Mobile & Tablet secondary navigation strip */}
       <div className="xl:hidden flex items-center gap-4 overflow-x-auto pt-3 border-t border-slate-800/60 mt-2 text-xs font-medium text-slate-400 no-scrollbar">
+        <button onClick={onOpenSaveModal} className="whitespace-nowrap py-1 text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1">
+          <Save className="w-3.5 h-3.5" />
+          <span>Save/Load</span>
+        </button>
+        <button onClick={onReturnToMainMenu} className="whitespace-nowrap py-1 text-slate-400 hover:text-white flex items-center gap-1">
+          <Home className="w-3.5 h-3.5" />
+          <span>Menu</span>
+        </button>
         <button onClick={() => setActiveTab('overview')} className={`whitespace-nowrap py-1 ${activeTab === 'overview' ? 'text-emerald-400 font-bold' : ''}`}>Boardroom</button>
         <button onClick={() => setActiveTab('finances')} className={`whitespace-nowrap py-1 ${activeTab === 'finances' ? 'text-emerald-400 font-bold' : ''}`}>Finances</button>
         <button onClick={() => setActiveTab('stadium')} className={`whitespace-nowrap py-1 ${activeTab === 'stadium' ? 'text-emerald-400 font-bold' : ''}`}>Ground & Stadium</button>
@@ -197,6 +252,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenM
         >
           <Award className="w-3.5 h-3.5" />
           <span>{state.managerProfile ? state.managerProfile.licenseName : 'Coaching License'}</span>
+        </button>
+        <button
+          onClick={onOpenExecutiveDevelopment}
+          className="whitespace-nowrap py-1 text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-bold"
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>Exec Academy</span>
         </button>
       </div>
     </header>
